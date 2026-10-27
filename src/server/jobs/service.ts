@@ -11,7 +11,7 @@ export async function listVisibleJobs() {
   const admin = createAdminClient();
   const { data: membership, error: membershipError } = await admin.from("memberships").select("franchise_id,shop_id").eq("user_id", user.id).eq("is_active", true).maybeSingle();
   if (membershipError) throw membershipError;
-  let query = admin.from("jobs").select("*,shop:shops(name),vehicle:vehicles(registration,make,model),customer:profiles!jobs_customer_id_fkey(first_name,last_name)").order("updated_at", { ascending: false });
+  let query = admin.from("jobs").select("*,shop:shops(name),vehicle:vehicles(registration,make,model),customer:profiles!jobs_customer_id_fkey(first_name,last_name),tasks:repair_tasks(id,title,note,status,position,updated_at)").order("updated_at", { ascending: false });
   query = membership ? query.eq("franchise_id", membership.franchise_id) : query.eq("customer_id", user.id);
   if (membership?.shop_id) query = query.eq("shop_id", membership.shop_id);
   const { data, error } = await query;

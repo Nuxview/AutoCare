@@ -3,7 +3,7 @@ import { camelize } from "@/lib/supabase/format";
 
 export async function GET(request: Request) {
   const county = new URL(request.url).searchParams.get("county")?.trim();
-  let query = createAdminClient().from("shops").select("id,name,address,county,booking_capacity,franchise:franchises!inner(name,slug,logo_url,status),services:service_catalog(id,name,description,base_price,estimated_minutes,is_active)").eq("is_active", true).in("franchise.status", ["ACTIVE", "TRIAL"]).order("name");
+  let query = createAdminClient().from("shops").select("id,name,address,county,booking_capacity,accepts_bookings,opening_hours,franchise:franchises!inner(name,slug,logo_url,status),services:service_catalog(id,name,description,base_price,estimated_minutes,is_active)").eq("is_active", true).eq("accepts_bookings",true).in("franchise.status", ["ACTIVE", "TRIAL"]).order("name");
   if (county) query = query.ilike("county", county);
   const { data, error } = await query;
   if (error) return Response.json({ error: { code: "DATABASE_ERROR", message: error.message } }, { status: 500 });

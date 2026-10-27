@@ -16,6 +16,7 @@ export async function createBooking(customerId: string, input: z.infer<typeof bo
     if (error.message.includes("VEHICLE_NOT_FOUND")) throw new ApiError(404, "Vehicle not found", "VEHICLE_NOT_FOUND");
     if (error.message.includes("INVALID_SERVICE")) throw new ApiError(400, "That service is not offered by this garage", "INVALID_SERVICE");
     if (error.message.includes("CAPACITY_REACHED")) throw new ApiError(409, "This garage is fully booked for that day", "CAPACITY_REACHED");
+    if (error.message.includes("OUTSIDE_OPENING_HOURS")) throw new ApiError(400, "Choose a time within this garage’s opening hours", "OUTSIDE_OPENING_HOURS");
     throw error;
   }
   const result = await admin.from("bookings").select("*,shop:shops(name),vehicle:vehicles(registration,make,model),service:service_catalog(name,base_price)").eq("id", id).single();

@@ -11,7 +11,7 @@ AutoCare is a modular monolith built on Next.js App Router. Route handlers are t
 - Phone/VIN-style sensitive fields are AES-256-GCM encrypted. A separate one-way normalized hash supports exact lookups without deterministic encryption.
 - The service-role Supabase key runs only on the server. Browser clients never receive it; route handlers enforce identity and tenant scope before data access.
 - Row Level Security is enabled on all application tables. The current server-only data layer bypasses RLS only after route-level authorization; direct browser table access is denied by default.
-- Supabase Storage is intentionally not configured. The upload route returns `501 STORAGE_NOT_CONFIGURED` until storage policies and buckets are designed.
+- Supabase Storage uses a private `repair-photos` bucket and a public `garage-logos` bucket. All uploads and signed photo reads go through authenticated, tenant-checked server routes. The legacy generic upload route remains disabled.
 - Money uses PostgreSQL `NUMERIC` and Decimal.js for arithmetic.
 
 ## Tenant model

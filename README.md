@@ -1,6 +1,6 @@
 # AutoCare
 
-Multi-tenant automotive service management for Kenyan drivers and garages, built with Next.js 16, React 19, Supabase Auth, Supabase Postgres, Paystack and M-Pesa Daraja. Supabase Storage is intentionally not configured yet.
+Multi-tenant automotive service management for Kenyan drivers and garages, built with Next.js 16, React 19, Supabase Auth, Supabase Postgres, Supabase Storage, Paystack and M-Pesa Daraja.
 
 ## Local setup
 
@@ -9,6 +9,13 @@ Multi-tenant automotive service management for Kenyan drivers and garages, built
 3. Copy `.env.example` to `.env.local`. Add the project URL, publishable key, and server-only secret key from the Supabase project settings. Never expose `SUPABASE_SECRET_KEY` to the browser.
 4. Generate the field key with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`, install dependencies with `npm install`, and run `npm run dev`.
 5. Open http://localhost:3000 and create the first account through the registration page.
+
+## Client and garage workflows
+
+- Clients request a garage visit. The request remains pending until an authorized garage staff member approves or declines it. Customers should bring the vehicle only after approval.
+- Garages check in approved visits and create repair jobs. Staff add ordered repair steps, update each step from pending to in progress to completed, set the garage's own repair estimate, then mark the vehicle ready for collection and complete the job.
+- Clients and garages share JPG, PNG or WebP photos on a booking. Photos live in a private Supabase Storage bucket; the server grants short-lived read URLs only to the booking's client and authorized garage staff. Garage logos live in a separate public bucket. Both buckets are created by the latest migration.
+- Garages manage stock quantities, reorder levels and prices, and customize their business/shop name, logo, weekly opening hours and booking availability. Client vehicle entry offers 10 popular make/model suggestions while still allowing any make and model.
 
 ## Paystack setup (Kenya)
 
