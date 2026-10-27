@@ -13,7 +13,7 @@ Multi-tenant automotive service management for Kenyan drivers and garages, built
 ## Client and garage workflows
 
 - Clients request a garage visit. The request remains pending until an authorized garage staff member approves or declines it. Customers should bring the vehicle only after approval.
-- Garages check in approved visits and create repair jobs. Staff add ordered repair steps, update each step from pending to in progress to completed, set the garage's own repair estimate, then mark the vehicle ready for collection and complete the job.
+- Garages check in approved visits and create repair jobs. Staff add ordered repair steps, update each step from pending to in progress to completed, set the garage's own repair estimate, then issue an invoice for that amount. The amount is locked after invoicing. Staff can mark the vehicle ready for collection and complete the job.
 - Clients and garages share JPG, PNG or WebP photos on a booking. Photos live in a private Supabase Storage bucket; the server grants short-lived read URLs only to the booking's client and authorized garage staff. Garage logos live in a separate public bucket. Both buckets are created by the latest migration.
 - Garages manage stock quantities, reorder levels and prices, and customize their business/shop name, logo, weekly opening hours and booking availability. Client vehicle entry offers 10 popular make/model suggestions while still allowing any make and model.
 
