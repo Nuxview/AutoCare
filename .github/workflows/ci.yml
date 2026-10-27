@@ -3,33 +3,19 @@ on:
   push:
     branches: [main]
   pull_request:
+permissions:
+  contents: read
 jobs:
   verify:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: autocare_test
-          POSTGRES_USER: autocare
-          POSTGRES_PASSWORD: autocare
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U autocare -d autocare_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      DATABASE_URL: postgresql://autocare:autocare@localhost:5432/autocare_test?schema=public
-      JWT_ACCESS_SECRET: ci-access-secret-that-is-at-least-32-characters
-      JWT_REFRESH_SECRET: ci-refresh-secret-that-is-at-least-32-characters
-      FIELD_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-      APP_URL: http://localhost:3000
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: npm install
-      - run: npx prisma migrate deploy
+          cache: npm
+      - run: npm ci
+      - run: npx next typegen
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
