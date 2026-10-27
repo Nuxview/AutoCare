@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, CalendarDays, CarFront, LayoutDashboard, LogOut, Menu, ReceiptText, Settings, Wrench } from "lucide-react";
+import { Bell, CalendarDays, CarFront, CreditCard, LayoutDashboard, LogOut, Menu, ReceiptText, Settings, Wrench } from "lucide-react";
 import { Brand } from "./brand";
 
 const links = [
@@ -11,6 +11,7 @@ const links = [
   { href: "/dashboard/vehicles", label: "Vehicles", icon: CarFront },
   { href: "/dashboard/jobs", label: "Jobs", icon: Wrench },
   { href: "/dashboard/invoices", label: "Invoices", icon: ReceiptText },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {

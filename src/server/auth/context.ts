@@ -20,7 +20,7 @@ export async function requirePlatformAdmin() {
   return user;
 }
 
-export async function requireTenantMembership(franchiseId: string, shopId?: string, roles?: MembershipRole[]) {
+export async function requireTenantMembership(franchiseId: string, shopId?: string, roles?: MembershipRole[], allowInactive = false) {
   const user = await requireAuthenticatedUser();
   const admin = createAdminClient();
   let query = admin.from("memberships").select("*,franchise:franchises(status)").eq("user_id", user.id).eq("franchise_id", franchiseId).eq("is_active", true);
@@ -30,6 +30,6 @@ export async function requireTenantMembership(franchiseId: string, shopId?: stri
   const membership = data?.find((item: Record<string, unknown>) => !shopId || item.shop_id === null || item.shop_id === shopId);
   if (!membership) throw new ApiError(403, "You do not have access to this garage", "TENANT_ACCESS_DENIED");
   const franchise = membership.franchise as { status: string } | null;
-  if (franchise && ["SUSPENDED", "CANCELLED"].includes(franchise.status)) throw new ApiError(403, "This garage account is not active", "TENANT_SUSPENDED");
+  if (!allowInactive && franchise && ["SUSPENDED", "CANCELLED"].includes(franchise.status)) throw new ApiError(403, "This garage account is not active", "TENANT_SUSPENDED");
   return { user, membership };
 }

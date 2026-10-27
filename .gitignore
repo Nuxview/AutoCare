@@ -8,3 +8,4 @@ coverage
 dist
 generated
 *.tsbuildinfo
+supabase/.temp/
