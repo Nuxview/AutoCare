@@ -29,4 +29,19 @@ Multi-tenant automotive service management for Kenyan drivers and garages, built
 
 Run `npm run typecheck`, `npm test`, `npm run build`, and `docker compose config`.
 
+## Workshop workflows and staff access
+
+Apply `supabase/migrations/20261102133752_workshop_workflows.sql` after the earlier migrations **before deploying this application version**. It adds quotes, parts movements, scheduling, invitations, history-sharing grants and maintenance reminders. Existing invoices are preserved. Uninvoiced repairs now require an approved itemized quote; previously invoiced repairs can still finish their handover workflow.
+
+The app retains two workspace types: Customer and Garage. Garage navigation and server access depend on staff role. Owners/administrators manage invitations; managers/advisors schedule visits and send quotes; mechanics see assigned repairs; inventory clerks manage stock; accountants issue approved invoices and view payments. Platform administrators receive no implicit garage access.
+
+- **Staff:** an owner creates an invitation for an email address and branch. The recipient registers a customer account if necessary, verifies that email, signs in, and accepts under **Staff invitations**. The invitation is valid for seven days and can be revoked. Invitations appear in-app; automatic invitation emails are not configured. Acceptance is restricted to one active garage membership per account. Staff cannot invite owners or promote themselves.
+- **Calendar:** configure repair bays, then schedule confirmed visits with a start/end time, mechanic, and bay. Times use East Africa Time. The database checks branch opening hours and conflicts with existing active appointments. Mechanic availability currently means an active membership with no overlapping booking; individual shifts and leave are not modeled. Scheduling before check-in assigns the mechanic when the repair job is created.
+- **Quotes:** send a full itemized quote, optionally selecting stock items. The customer approves or declines the exact version. A revision includes all work and fitted parts, preserves previous decisions, and requires fresh approval. Work progression and further parts usage are blocked pending approval.
+- **Parts and invoices:** approved parts are deducted transactionally and recorded with the actor. Returns restore stock. An invoice uses the approved quote lines exactly once; all quoted stock quantities must match net recorded usage. Returns and quote changes are locked after invoicing. Post-invoice refunds/credit notes are outside this workflow.
+- **History:** customers see repair steps, recorded service mileage, parts, photos and invoices across their own vehicles. They can grant/revoke an entire garage's read access to a vehicle's customer-facing history. Internal notes are excluded. Revocation prevents future reads; already downloaded reports and photo URLs issued for up to five minutes cannot be recalled.
+- **Reports and reminders:** reports download as printable HTML (browser Print → Save as PDF). Reminders are shown in service history when either the due date or recorded mileage is reached. They are in-app reminders, not scheduled email/SMS messages.
+
+See [docs/WORKSHOP-WORKFLOWS.md](docs/WORKSHOP-WORKFLOWS.md) for the permission matrix and verification scope. The database tests run all migrations against isolated embedded PostgreSQL; no live customer database is used by `npm test`.
+
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for boundaries, tenancy, migration decisions, and production hardening.

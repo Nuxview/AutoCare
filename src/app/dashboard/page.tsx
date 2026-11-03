@@ -3,41 +3,502 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowRight, CalendarDays, CarFront, CheckCircle2, Clock3, PackageSearch, ReceiptText, Wrench } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  CarFront,
+  CheckCircle2,
+  Clock3,
+  PackageSearch,
+  ReceiptText,
+  Wrench,
+} from "lucide-react";
 
-type Booking = { id: string; status: string; scheduledAt: string; shop: { name: string }; vehicle: { registration: string; make?: string; model?: string }; customer?: { firstName: string; lastName: string } };
-type Job = { id: string; status: string; estimateAmount?: number | null; shop?: { name: string }; vehicle: { registration: string; make: string; model: string }; customer?: { firstName: string; lastName: string }; tasks?: Array<{ id: string; title: string; status: string; position: number }> };
-type Dashboard = { kind: "customer" | "garage"; user: { firstName: string }; metrics: Record<string, number>; membership?: { franchise: { name: string }; shop?: { name: string } | null }; recentBookings?: Booking[]; pendingBookings?: Booking[]; recentJobs?: Job[] };
-const date = (v: string) => new Date(v).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" });
+import { useWorkspace } from "@/components/workspace-context";
+import { can, roleLabel } from "@/lib/permissions";
+
+type Booking = {
+  id: string;
+  status: string;
+  scheduledAt: string;
+  shop: { name: string };
+  vehicle: { registration: string; make?: string; model?: string };
+  customer?: { firstName: string; lastName: string };
+};
+type Job = {
+  id: string;
+  status: string;
+  estimateAmount?: number | null;
+  shop?: { name: string };
+  vehicle: { registration: string; make: string; model: string };
+  customer?: { firstName: string; lastName: string };
+  tasks?: Array<{
+    id: string;
+    title: string;
+    status: string;
+    position: number;
+  }>;
+};
+type Dashboard = {
+  kind: "customer" | "garage";
+  user: { firstName: string };
+  metrics: Record<string, number>;
+  membership?: { franchise: { name: string }; shop?: { name: string } | null };
+  recentBookings?: Booking[];
+  pendingBookings?: Booking[];
+  recentJobs?: Job[];
+};
+const date = (v: string) =>
+  new Date(v).toLocaleString("en-KE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 const label = (v: string) => v.replaceAll("_", " ").toLowerCase();
 
 export default function DashboardPage() {
-  const router = useRouter(); const [data, setData] = useState<Dashboard | null>(null); const [error, setError] = useState("");
-  useEffect(() => { let active = true; fetch("/api/dashboard").then(async r => { if (r.status === 401) { router.replace("/login"); return; } if (!r.ok) throw new Error("Dashboard could not be loaded"); if (active) setData(await r.json()); }).catch(e => { if (active) setError(e.message); }); return () => { active = false; }; }, [router]);
-  if (error) return <div className="app-content"><div className="empty-premium">{error}</div></div>;
+  const router = useRouter();
+  const [data, setData] = useState<Dashboard | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    fetch("/api/dashboard")
+      .then(async (r) => {
+        if (r.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (!r.ok) throw new Error("Dashboard could not be loaded");
+        if (active) setData(await r.json());
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [router]);
+  if (error)
+    return (
+      <div className="app-content">
+        <div className="empty-premium">{error}</div>
+      </div>
+    );
   if (!data) return <div className="skeleton">Preparing your dashboard…</div>;
-  return data.kind === "customer" ? <ClientHome data={data} /> : <GarageHome data={data} />;
+  return data.kind === "customer" ? (
+    <ClientHome data={data} />
+  ) : (
+    <GarageHome data={data} />
+  );
 }
-function Stat({ icon, value, label, note }: { icon: React.ReactNode; value: string | number; label: string; note: string }) {
-  return <article className="portal-stat"><span className="portal-stat-icon">{icon}</span><strong>{value}</strong><span>{label}</span><small>{note}</small></article>;
+function Stat({
+  icon,
+  value,
+  label,
+  note,
+}: {
+  icon: React.ReactNode;
+  value: string | number;
+  label: string;
+  note: string;
+}) {
+  return (
+    <article className="portal-stat">
+      <span className="portal-stat-icon">{icon}</span>
+      <strong>{value}</strong>
+      <span>{label}</span>
+      <small>{note}</small>
+    </article>
+  );
 }
-function Empty({ icon, title, detail }: { icon: React.ReactNode; title: string; detail: string }) {
-  return <div className="empty-premium">{icon}<strong>{title}</strong><p>{detail}</p></div>;
+function Empty({
+  icon,
+  title,
+  detail,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div className="empty-premium">
+      {icon}
+      <strong>{title}</strong>
+      <p>{detail}</p>
+    </div>
+  );
 }
 function ClientHome({ data }: { data: Dashboard }) {
-  const activeJob = data.recentJobs?.find(j => !["COMPLETED", "CANCELLED"].includes(j.status));
-  const tasks = [...(activeJob?.tasks ?? [])].sort((a, b) => a.position - b.position); const done = tasks.filter(t => t.status === "COMPLETED").length;
-  return <div className="app-content portal-home client-home">
-    <section className="portal-hero client-hero"><div><span className="eyebrow">YOUR AUTOCARE</span><h2>Good to see you, {data.user.firstName}.</h2><p>Every visit, repair and invoice for the cars you love, together in one place.</p><div className="hero-actions"><Link className="btn btn-lime" href="/dashboard/bookings">Book a garage visit <ArrowRight size={17} /></Link><Link className="hero-link" href="/dashboard/vehicles">Manage my vehicles</Link></div></div><div className="hero-orbit"><CarFront size={78} strokeWidth={1.2} /><span>Your car journey, made clear.</span></div></section>
-    <section className="portal-stat-grid" aria-label="Your overview"><Stat icon={<CarFront />} value={data.metrics.vehicles} label="Vehicles" note="Saved to your account" /><Stat icon={<CalendarDays />} value={data.metrics.activeBookings} label="Active visits" note="Requests and appointments" /><Stat icon={<Wrench />} value={data.recentJobs?.filter(j => !["COMPLETED", "CANCELLED"].includes(j.status)).length ?? 0} label="Repairs underway" note="Follow every step" /><Stat icon={<ReceiptText />} value={data.metrics.unpaidInvoices} label="Invoices due" note="Ready for payment" /></section>
-    <div className="portal-two-column"><section className="premium-panel"><div className="premium-panel-head"><div><span className="eyebrow">LIVE STATUS</span><h3>Your repair journey</h3></div><Link href="/dashboard/jobs">All repairs <ArrowRight size={15} /></Link></div>{activeJob ? <div className="journey-card"><div className="journey-heading"><div className="journey-icon"><CarFront size={23} /></div><div><strong>{activeJob.vehicle.make} {activeJob.vehicle.model}</strong><span>{activeJob.vehicle.registration} · {activeJob.shop?.name}</span></div><span className="status-chip">{label(activeJob.status)}</span></div><div className="progress-track"><span style={{ width: `${tasks.length ? Math.round(done / tasks.length * 100) : 0}%` }} /></div><div className="progress-caption"><span>{tasks.length ? `${done} of ${tasks.length} steps complete` : "Garage is preparing your repair plan"}</span><strong>{tasks.length ? `${Math.round(done / tasks.length * 100)}%` : "—"}</strong></div>{tasks.slice(0, 4).map(t => <div className="journey-step" key={t.id}><span className={`step-dot ${t.status.toLowerCase()}`}>{t.status === "COMPLETED" ? <CheckCircle2 size={14} /> : <Clock3 size={13} />}</span><span>{t.title}</span><small>{label(t.status)}</small></div>)}<Link className="text-action" href="/dashboard/jobs">View repair details <ArrowRight size={15} /></Link></div> : <Empty icon={<Wrench size={24} />} title="No active repairs" detail="Once a garage checks in your vehicle, each repair step appears here." />}</section>
-      <section className="premium-panel"><div className="premium-panel-head"><div><span className="eyebrow">COMING UP</span><h3>Garage visits</h3></div><Link href="/dashboard/bookings">View all <ArrowRight size={15} /></Link></div><div className="premium-list">{data.recentBookings?.slice(0, 4).map(b => <div className="visit-row" key={b.id}><div className="date-tile"><strong>{new Date(b.scheduledAt).toLocaleDateString("en-KE", { day: "2-digit" })}</strong><span>{new Date(b.scheduledAt).toLocaleDateString("en-KE", { month: "short" })}</span></div><div><strong>{b.shop.name}</strong><span>{b.vehicle.registration} · {date(b.scheduledAt)}</span><small>{b.status === "REQUESTED" ? "Awaiting garage approval" : label(b.status)}</small></div></div>)}{!data.recentBookings?.length && <Empty icon={<CalendarDays size={24} />} title="No visits yet" detail="Choose a garage and request your first appointment." />}</div></section></div>
-  </div>;
+  const activeJob = data.recentJobs?.find(
+    (j) => !["COMPLETED", "CANCELLED"].includes(j.status),
+  );
+  const tasks = [...(activeJob?.tasks ?? [])].sort(
+    (a, b) => a.position - b.position,
+  );
+  const done = tasks.filter((t) => t.status === "COMPLETED").length;
+  return (
+    <div className="app-content portal-home client-home">
+      <section className="portal-hero client-hero">
+        <div>
+          <span className="eyebrow">YOUR AUTOCARE</span>
+          <h2>Good to see you, {data.user.firstName}.</h2>
+          <p>
+            Every visit, repair and invoice for the cars you love, together in
+            one place.
+          </p>
+          <div className="hero-actions">
+            <Link className="btn btn-lime" href="/dashboard/bookings">
+              Book a garage visit <ArrowRight size={17} />
+            </Link>
+            <Link className="hero-link" href="/dashboard/vehicles">
+              Manage my vehicles
+            </Link>
+          </div>
+        </div>
+        <div className="hero-orbit">
+          <CarFront size={78} strokeWidth={1.2} />
+          <span>Your car journey, made clear.</span>
+        </div>
+      </section>
+      <section className="portal-stat-grid" aria-label="Your overview">
+        <Stat
+          icon={<CarFront />}
+          value={data.metrics.vehicles}
+          label="Vehicles"
+          note="Saved to your account"
+        />
+        <Stat
+          icon={<CalendarDays />}
+          value={data.metrics.activeBookings}
+          label="Active visits"
+          note="Requests and appointments"
+        />
+        <Stat
+          icon={<Wrench />}
+          value={
+            data.recentJobs?.filter(
+              (j) => !["COMPLETED", "CANCELLED"].includes(j.status),
+            ).length ?? 0
+          }
+          label="Repairs underway"
+          note="Follow every step"
+        />
+        <Stat
+          icon={<ReceiptText />}
+          value={data.metrics.unpaidInvoices}
+          label="Invoices due"
+          note="Ready for payment"
+        />
+      </section>
+      <div className="portal-two-column">
+        <section className="premium-panel">
+          <div className="premium-panel-head">
+            <div>
+              <span className="eyebrow">LIVE STATUS</span>
+              <h3>Your repair journey</h3>
+            </div>
+            <Link href="/dashboard/jobs">
+              All repairs <ArrowRight size={15} />
+            </Link>
+          </div>
+          {activeJob ? (
+            <div className="journey-card">
+              <div className="journey-heading">
+                <div className="journey-icon">
+                  <CarFront size={23} />
+                </div>
+                <div>
+                  <strong>
+                    {activeJob.vehicle.make} {activeJob.vehicle.model}
+                  </strong>
+                  <span>
+                    {activeJob.vehicle.registration} · {activeJob.shop?.name}
+                  </span>
+                </div>
+                <span className="status-chip">{label(activeJob.status)}</span>
+              </div>
+              <div className="progress-track">
+                <span
+                  style={{
+                    width: `${tasks.length ? Math.round((done / tasks.length) * 100) : 0}%`,
+                  }}
+                />
+              </div>
+              <div className="progress-caption">
+                <span>
+                  {tasks.length
+                    ? `${done} of ${tasks.length} steps complete`
+                    : "Garage is preparing your repair plan"}
+                </span>
+                <strong>
+                  {tasks.length
+                    ? `${Math.round((done / tasks.length) * 100)}%`
+                    : "—"}
+                </strong>
+              </div>
+              {tasks.slice(0, 4).map((t) => (
+                <div className="journey-step" key={t.id}>
+                  <span className={`step-dot ${t.status.toLowerCase()}`}>
+                    {t.status === "COMPLETED" ? (
+                      <CheckCircle2 size={14} />
+                    ) : (
+                      <Clock3 size={13} />
+                    )}
+                  </span>
+                  <span>{t.title}</span>
+                  <small>{label(t.status)}</small>
+                </div>
+              ))}
+              <Link className="text-action" href="/dashboard/jobs">
+                View repair details <ArrowRight size={15} />
+              </Link>
+            </div>
+          ) : (
+            <Empty
+              icon={<Wrench size={24} />}
+              title="No active repairs"
+              detail="Once a garage checks in your vehicle, each repair step appears here."
+            />
+          )}
+        </section>
+        <section className="premium-panel">
+          <div className="premium-panel-head">
+            <div>
+              <span className="eyebrow">COMING UP</span>
+              <h3>Garage visits</h3>
+            </div>
+            <Link href="/dashboard/bookings">
+              View all <ArrowRight size={15} />
+            </Link>
+          </div>
+          <div className="premium-list">
+            {data.recentBookings?.slice(0, 4).map((b) => (
+              <div className="visit-row" key={b.id}>
+                <div className="date-tile">
+                  <strong>
+                    {new Date(b.scheduledAt).toLocaleDateString("en-KE", {
+                      day: "2-digit",
+                    })}
+                  </strong>
+                  <span>
+                    {new Date(b.scheduledAt).toLocaleDateString("en-KE", {
+                      month: "short",
+                    })}
+                  </span>
+                </div>
+                <div>
+                  <strong>{b.shop.name}</strong>
+                  <span>
+                    {b.vehicle.registration} · {date(b.scheduledAt)}
+                  </span>
+                  <small>
+                    {b.status === "REQUESTED"
+                      ? "Awaiting garage approval"
+                      : label(b.status)}
+                  </small>
+                </div>
+              </div>
+            ))}
+            {!data.recentBookings?.length && (
+              <Empty
+                icon={<CalendarDays size={24} />}
+                title="No visits yet"
+                detail="Choose a garage and request your first appointment."
+              />
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
 }
 function GarageHome({ data }: { data: Dashboard }) {
-  return <div className="app-content portal-home garage-home"><section className="portal-hero garage-hero"><div><span className="eyebrow">WORKSHOP COMMAND CENTRE</span><h2>{data.membership?.shop?.name ?? data.membership?.franchise.name ?? "Your garage"}</h2><p>Review new requests, manage repairs and stay ahead of stock.</p><div className="hero-actions"><Link className="btn btn-lime" href="/dashboard/bookings">Review bookings <ArrowRight size={17} /></Link><Link className="hero-link" href="/dashboard/garage-settings">Garage settings</Link></div></div><div className="garage-hero-mark"><Wrench size={76} strokeWidth={1.2} /><span>Built for the work behind every great drive.</span></div></section>
-    <section className="portal-stat-grid" aria-label="Workshop overview"><Stat icon={<CalendarDays />} value={data.metrics.pendingBookings} label="Requests to review" note="Approve before arrival" /><Stat icon={<Wrench />} value={data.metrics.openJobs} label="Active repair jobs" note="In your workshop" /><Stat icon={<PackageSearch />} value={data.metrics.lowStock} label="Low stock items" note="Ready for reorder" /><Stat icon={<ReceiptText />} value={`KES ${Number(data.metrics.receivables).toLocaleString()}`} label="Outstanding" note="Invoices to collect" /></section>
-    <div className="portal-two-column"><section className="premium-panel"><div className="premium-panel-head"><div><span className="eyebrow">ACTION NEEDED</span><h3>Booking requests</h3></div><Link href="/dashboard/bookings">Review all <ArrowRight size={15} /></Link></div><div className="premium-list">{data.pendingBookings?.map(b => <div className="queue-row" key={b.id}><div className="queue-symbol"><CalendarDays size={18} /></div><div><strong>{b.customer?.firstName} {b.customer?.lastName}</strong><span>{b.vehicle.registration} · {b.vehicle.make} {b.vehicle.model}</span><small>{date(b.scheduledAt)}</small></div><Link href="/dashboard/bookings" className="mini-action">Review</Link></div>)}{!data.pendingBookings?.length && <Empty icon={<CheckCircle2 size={24} />} title="All caught up" detail="New booking requests will appear here for your approval." />}</div></section><section className="premium-panel"><div className="premium-panel-head"><div><span className="eyebrow">IN THE BAY</span><h3>Current repairs</h3></div><Link href="/dashboard/jobs">Open jobs <ArrowRight size={15} /></Link></div><div className="premium-list">{data.recentJobs?.slice(0, 5).map(j => <div className="queue-row" key={j.id}><div className="queue-symbol mint"><Wrench size={18} /></div><div><strong>{j.vehicle.registration}</strong><span>{j.vehicle.make} {j.vehicle.model} · {j.customer?.firstName} {j.customer?.lastName}</span><small>{label(j.status)}</small></div><Link href="/dashboard/jobs" className="mini-action">Open</Link></div>)}{!data.recentJobs?.length && <Empty icon={<Wrench size={24} />} title="No jobs in progress" detail="Approved bookings can be checked in when a customer arrives." />}</div></section></div>
-    <div className="garage-shortcuts"><Link href="/dashboard/inventory"><PackageSearch size={20} /><span><strong>Manage stock</strong><small>Parts, quantities and prices</small></span><ArrowRight size={17} /></Link><Link href="/dashboard/garage-settings"><Clock3 size={20} /><span><strong>Opening hours</strong><small>Set your availability</small></span><ArrowRight size={17} /></Link><Link href="/dashboard/invoices"><ReceiptText size={20} /><span><strong>Invoices</strong><small>Charge for your work</small></span><ArrowRight size={17} /></Link></div>
-  </div>;
+  const { role } = useWorkspace();
+  if (!can(role, "bookings"))
+    return (
+      <div className="app-content workflow-stack">
+        <h2>Welcome, {data.user.firstName}</h2>
+        <p>Your role: {roleLabel(role ?? "")}</p>
+        <div className="workflow-actions">
+          {can(role, "repairs") && (
+            <Link className="btn btn-primary" href="/dashboard/jobs">
+              My assigned repairs
+            </Link>
+          )}
+          {can(role, "schedule") && (
+            <Link className="btn btn-secondary" href="/dashboard/schedule">
+              My schedule
+            </Link>
+          )}
+          {can(role, "inventory") && (
+            <Link className="btn btn-primary" href="/dashboard/inventory">
+              Manage stock
+            </Link>
+          )}
+          {can(role, "invoices") && (
+            <Link className="btn btn-primary" href="/dashboard/invoices">
+              Invoices & payments
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  return (
+    <div className="app-content portal-home garage-home">
+      <section className="portal-hero garage-hero">
+        <div>
+          <span className="eyebrow">WORKSHOP COMMAND CENTRE</span>
+          <h2>
+            {data.membership?.shop?.name ??
+              data.membership?.franchise.name ??
+              "Your garage"}
+          </h2>
+          <p>Review new requests, manage repairs and stay ahead of stock.</p>
+          <div className="hero-actions">
+            <Link className="btn btn-lime" href="/dashboard/bookings">
+              Review bookings <ArrowRight size={17} />
+            </Link>
+            <Link className="hero-link" href="/dashboard/garage-settings">
+              Garage settings
+            </Link>
+          </div>
+        </div>
+        <div className="garage-hero-mark">
+          <Wrench size={76} strokeWidth={1.2} />
+          <span>Built for the work behind every great drive.</span>
+        </div>
+      </section>
+      <section className="portal-stat-grid" aria-label="Workshop overview">
+        <Stat
+          icon={<CalendarDays />}
+          value={data.metrics.pendingBookings}
+          label="Requests to review"
+          note="Approve before arrival"
+        />
+        <Stat
+          icon={<Wrench />}
+          value={data.metrics.openJobs}
+          label="Active repair jobs"
+          note="In your workshop"
+        />
+        <Stat
+          icon={<PackageSearch />}
+          value={data.metrics.lowStock}
+          label="Low stock items"
+          note="Ready for reorder"
+        />
+        <Stat
+          icon={<ReceiptText />}
+          value={`KES ${Number(data.metrics.receivables).toLocaleString()}`}
+          label="Outstanding"
+          note="Invoices to collect"
+        />
+      </section>
+      <div className="portal-two-column">
+        <section className="premium-panel">
+          <div className="premium-panel-head">
+            <div>
+              <span className="eyebrow">ACTION NEEDED</span>
+              <h3>Booking requests</h3>
+            </div>
+            <Link href="/dashboard/bookings">
+              Review all <ArrowRight size={15} />
+            </Link>
+          </div>
+          <div className="premium-list">
+            {data.pendingBookings?.map((b) => (
+              <div className="queue-row" key={b.id}>
+                <div className="queue-symbol">
+                  <CalendarDays size={18} />
+                </div>
+                <div>
+                  <strong>
+                    {b.customer?.firstName} {b.customer?.lastName}
+                  </strong>
+                  <span>
+                    {b.vehicle.registration} · {b.vehicle.make}{" "}
+                    {b.vehicle.model}
+                  </span>
+                  <small>{date(b.scheduledAt)}</small>
+                </div>
+                <Link href="/dashboard/bookings" className="mini-action">
+                  Review
+                </Link>
+              </div>
+            ))}
+            {!data.pendingBookings?.length && (
+              <Empty
+                icon={<CheckCircle2 size={24} />}
+                title="All caught up"
+                detail="New booking requests will appear here for your approval."
+              />
+            )}
+          </div>
+        </section>
+        <section className="premium-panel">
+          <div className="premium-panel-head">
+            <div>
+              <span className="eyebrow">IN THE BAY</span>
+              <h3>Current repairs</h3>
+            </div>
+            <Link href="/dashboard/jobs">
+              Open jobs <ArrowRight size={15} />
+            </Link>
+          </div>
+          <div className="premium-list">
+            {data.recentJobs?.slice(0, 5).map((j) => (
+              <div className="queue-row" key={j.id}>
+                <div className="queue-symbol mint">
+                  <Wrench size={18} />
+                </div>
+                <div>
+                  <strong>{j.vehicle.registration}</strong>
+                  <span>
+                    {j.vehicle.make} {j.vehicle.model} · {j.customer?.firstName}{" "}
+                    {j.customer?.lastName}
+                  </span>
+                  <small>{label(j.status)}</small>
+                </div>
+                <Link href="/dashboard/jobs" className="mini-action">
+                  Open
+                </Link>
+              </div>
+            ))}
+            {!data.recentJobs?.length && (
+              <Empty
+                icon={<Wrench size={24} />}
+                title="No jobs in progress"
+                detail="Approved bookings can be checked in when a customer arrives."
+              />
+            )}
+          </div>
+        </section>
+      </div>
+      <div className="garage-shortcuts">
+        <Link href="/dashboard/inventory">
+          <PackageSearch size={20} />
+          <span>
+            <strong>Manage stock</strong>
+            <small>Parts, quantities and prices</small>
+          </span>
+          <ArrowRight size={17} />
+        </Link>
+        <Link href="/dashboard/garage-settings">
+          <Clock3 size={20} />
+          <span>
+            <strong>Opening hours</strong>
+            <small>Set your availability</small>
+          </span>
+          <ArrowRight size={17} />
+        </Link>
+        <Link href="/dashboard/invoices">
+          <ReceiptText size={20} />
+          <span>
+            <strong>Invoices</strong>
+            <small>Charge for your work</small>
+          </span>
+          <ArrowRight size={17} />
+        </Link>
+      </div>
+    </div>
+  );
 }
