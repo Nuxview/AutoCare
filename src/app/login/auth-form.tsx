@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowLeft, ArrowRight, CheckCircle2, KeyRound, LoaderCircle, Mail } from "lucide-react";
 import { authFormSchema } from "@/lib/validation";
+import { createClient } from "@/lib/supabase/browser";
 
 type Form = z.infer<typeof authFormSchema>;
 
@@ -23,14 +24,20 @@ const formFields = new Set<keyof Form>([
 ]);
 
 /**
- * Main authentication form providing Sign In, Registration, and Forgot Password flows.
+ * Main authentication form providing Sign In, Registration, Reset Password, and Forgot Password flows.
  *
- * @param props.initialMode Initial mode to display ('login' | 'register')
+ * @param props.initialMode Initial mode to display ('login' | 'register' | 'reset')
  */
-export function AuthForm({ initialMode }: { initialMode: "login" | "register" }) {
+export function AuthForm({ initialMode }: { initialMode: "login" | "register" | "reset" }) {
   const router = useRouter();
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
+
+  // Reset password flow states
+  const [isResetPassword, setIsResetPassword] = useState(initialMode === "reset");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordError, setNewPasswordError] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   // Forgot password flow states
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -49,7 +56,7 @@ export function AuthForm({ initialMode }: { initialMode: "login" | "register" })
     formState: { errors, isSubmitting },
   } = useForm<Form>({
     resolver: zodResolver(authFormSchema),
-    defaultValues: { mode: initialMode, accountType: "customer" },
+    defaultValues: { mode: initialMode === "reset" ? "login" : initialMode, accountType: "customer" },
   });
   const mode = useWatch({ control, name: "mode" });
   const accountType = useWatch({ control, name: "accountType" });
@@ -77,6 +84,36 @@ export function AuthForm({ initialMode }: { initialMode: "login" | "register" })
   function closeForgotPassword() {
     setIsForgotPassword(false);
     setForgotError("");
+  }
+
+  /**
+   * Submits the updated password to Supabase Auth for the active recovery session.
+   *
+   * @param e Form submission event
+   * @returns Promise resolving once password update attempt finishes
+   */
+  async function handleUpdatePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setNewPasswordError("");
+
+    if (!newPassword || newPassword.length < 10) {
+      setNewPasswordError("Password must be at least 10 characters long.");
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setIsUpdatingPassword(false);
+
+    if (error) {
+      setNewPasswordError(error.message);
+      return;
+    }
+
+    setIsResetPassword(false);
+    setNotice("Password updated successfully. Sign in with your new password.");
+    switchMode("login");
   }
 
   async function handleResetPassword(e: React.FormEvent) {
@@ -126,6 +163,61 @@ export function AuthForm({ initialMode }: { initialMode: "login" | "register" })
       return;
     }
     router.push("/dashboard"); router.refresh();
+  }
+
+  if (isResetPassword) {
+    return (
+      <div className="auth-box" role="region" aria-labelledby="reset-heading">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
+          <div className="auth-icon-badge" aria-hidden="true">
+            <KeyRound size={22} />
+          </div>
+          <h1 id="reset-heading" style={{ margin: 0 }}>Set new password</h1>
+        </div>
+        <p style={{ marginTop: 10 }}>Choose a new password of at least 10 characters.</p>
+        <form onSubmit={handleUpdatePassword} className="form-grid" noValidate>
+          {newPasswordError && (
+            <div className="field-wide form-error" role="alert">
+              {newPasswordError}
+            </div>
+          )}
+          <Field label="New password" error={newPasswordError} wide>
+            <input
+              id="new-password"
+              required
+              type="password"
+              autoComplete="new-password"
+              className="input"
+              placeholder="10+ characters"
+              value={newPassword}
+              onChange={(e) => {
+                setNewPassword(e.target.value);
+                if (newPasswordError) setNewPasswordError("");
+              }}
+              aria-required="true"
+              aria-invalid={!!newPasswordError}
+            />
+          </Field>
+          <div className="field-wide" style={{ marginTop: 6 }}>
+            <button
+              type="submit"
+              className="btn btn-primary btn-full"
+              disabled={isUpdatingPassword}
+              aria-busy={isUpdatingPassword}
+            >
+              {isUpdatingPassword ? (
+                <>
+                  <LoaderCircle className="animate-spin" size={17} />
+                  <span>Updating password...</span>
+                </>
+              ) : (
+                <span>Update password</span>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
   }
 
   if (isForgotPassword) {
