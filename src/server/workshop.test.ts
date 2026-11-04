@@ -390,4 +390,59 @@ describe("workshop database workflows", () => {
       "READY",
     );
   });
+  it("reserves one checkout and settles verified payments exactly once", async () => {
+    await db.query(
+      "insert into invoices(id,number,franchise_id,shop_id,customer_id,status,subtotal,tax_amount,total_amount) values($1,'PAY-TEST',$2,$3,$4,'ISSUED',1000,0,1000)",
+      [id(900), id(10), id(20), id(2)],
+    );
+    await fails(
+      "select reserve_sandbox_payment($1,$2,'STRIPE')",
+      [id(900), id(4)],
+      "INVOICE_NOT_PAYABLE",
+    );
+    const payment = (await scalar(
+      "select reserve_sandbox_payment($1,$2,'STRIPE')",
+      [id(900), id(2)],
+    )) as { id: string; reference: string };
+    const retry = (await scalar(
+      "select reserve_sandbox_payment($1,$2,'STRIPE')",
+      [id(900), id(2)],
+    )) as { id: string };
+    expect(retry.id).toBe(payment.id);
+    await fails(
+      "select reserve_sandbox_payment($1,$2,'MPESA')",
+      [id(900), id(2)],
+      "CHECKOUT_OPEN",
+    );
+    await db.query(
+      "update payments set provider_reference='cs_test_verified',status='PROCESSING' where id=$1",
+      [payment.id],
+    );
+    const sql =
+      "select settle_verified_invoice_payment($1,'STRIPE',$2,$3,$4,$5)";
+    for (const args of [
+      [payment.reference, "wrong", 100000, "KES", true],
+      [payment.reference, "cs_test_verified", 1, "KES", true],
+      [payment.reference, "cs_test_verified", 100000, "USD", true],
+      [payment.reference, "cs_test_verified", 100000, "KES", false],
+    ])
+      await fails(sql, args, "PAYMENT_MISMATCH");
+    const args = [payment.reference, "cs_test_verified", 100000, "KES", true];
+    expect(await scalar(sql, args)).toBe(true);
+    expect(await scalar(sql, args)).toBe(false);
+    expect(
+      await scalar("select amount_paid from invoices where id=$1", [id(900)]),
+    ).toBe("1000.00");
+    expect(
+      await scalar(
+        "select count(*)::int from notifications where data->>'paymentId'=$1",
+        [payment.id],
+      ),
+    ).toBe(1);
+    expect(
+      await scalar(
+        "select has_function_privilege('authenticated','public.settle_verified_invoice_payment(text,text,text,bigint,text,boolean)','execute')",
+      ),
+    ).toBe(false);
+  });
 });

@@ -30,6 +30,9 @@ export function jsonError(error: unknown) {
   if (typeof error === "object" && error !== null && "message" in error) {
     const message = String(error.message);
     for (const [code, text] of Object.entries({
+      CHECKOUT_OPEN: "Another payment is already open for this invoice. Check its status first.",
+      INVOICE_NOT_PAYABLE: "This invoice is no longer payable. Refresh the page.",
+      WHOLE_KES_REQUIRED: "M-Pesa requires a whole KES balance. Please use card checkout for this invoice.",
       APPROVAL_REQUIRED: "The customer must approve the latest quote first.",
       PARTS_MISMATCH: "Record all approved stock parts used before invoicing.",
       JOB_CLOSED: "This repair is closed or invoiced.",

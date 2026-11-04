@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { InvoicePayment } from "@/components/invoice-payment";
 import { ApprovedInvoices } from "@/components/approved-invoices";
 
 type Invoice = {
@@ -33,7 +34,6 @@ async function fetchInvoiceData() {
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
   async function load() {
@@ -55,41 +55,36 @@ export default function InvoicesPage() {
         `/api/payments/paystack/verify?reference=${encodeURIComponent(reference)}`,
       ).then(async (response) => {
         setMessage(
-          response.ok
-            ? "Payment confirmed."
-            : response.status === 202
-              ? "Payment is still processing."
+          response.status === 202
+            ? "Payment is still processing."
+            : response.ok
+              ? "Payment confirmed."
               : "Payment could not be confirmed yet.",
         );
         if (response.ok) await load();
       });
     }
-  }, []);
-
-  async function pay(invoiceId: string) {
-    setBusyId(invoiceId);
-    setMessage("");
-    try {
-      const response = await fetch("/api/payments/paystack", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceId }),
-      });
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(
-          result.error?.message ?? "Checkout could not be started",
-        );
-      window.location.assign(result.checkoutUrl);
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Checkout could not be started",
-      );
-      setBusyId(null);
+    const stripeReference = new URLSearchParams(window.location.search).get(
+      "stripe_reference",
+    );
+    if (stripeReference?.startsWith("PAY-")) {
+      void fetch(
+        `/api/payments/status?reference=${encodeURIComponent(stripeReference)}`,
+      )
+        .then(async (response) => {
+          const result = await response.json();
+          setMessage(
+            response.status === 202
+              ? "Payment is still processing. Use Check payment status below."
+              : response.ok
+                ? `Sandbox payment: ${result.status.toLowerCase()}.`
+                : "Payment could not be confirmed yet.",
+          );
+          if (response.ok) await load();
+        })
+        .catch(() => setMessage("Payment could not be confirmed yet."));
     }
-  }
+  }, []);
 
   return (
     <div className="app-content">
@@ -154,15 +149,10 @@ export default function InvoicesPage() {
                     ["ISSUED", "PARTIALLY_PAID", "OVERDUE"].includes(
                       invoice.status,
                     ) ? (
-                      <button
-                        className="btn btn-primary"
-                        disabled={busyId === invoice.id}
-                        onClick={() => void pay(invoice.id)}
-                      >
-                        {busyId === invoice.id
-                          ? "Opening…"
-                          : "Pay with Paystack"}
-                      </button>
+                      <InvoicePayment
+                        invoiceId={invoice.id}
+                        onPaid={() => void load()}
+                      />
                     ) : null}
                   </td>
                 </tr>
