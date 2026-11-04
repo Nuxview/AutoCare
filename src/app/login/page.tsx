@@ -9,6 +9,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const { mode } = await searchParams;
   return <main className="auth-page">
     <aside className="auth-aside"><Link href="/"><Brand light /></Link><div className="auth-quote"><h2>Keep every journey moving.</h2><p>From a driver’s first booking to the final payment, AutoCare keeps everyone informed and every workshop in control.</p></div><small style={{ color: "#8fa79e", position: "relative", zIndex: 1 }}>Secure · Multi-tenant · Built for Kenya</small></aside>
-    <section className="auth-main"><AuthForm initialMode={mode === "register" ? "register" : "login"} /></section>
+    <section className="auth-main"><AuthForm initialMode={mode === "register" ? "register" : mode === "reset" ? "reset" : "login"} /></section>
   </main>;
 }
