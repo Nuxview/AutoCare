@@ -209,6 +209,19 @@ footer { padding: 26px 0; color: var(--muted); background: white; border-top: 1p
 .sidebar-kicker { color: #88a69d; font-size: 10px; font-weight: 850; letter-spacing: .15em; margin: 36px 12px 13px; }
 .customer-layout .sidebar-kicker { color: #a1b8c8; }
 .side-nav { margin-top: 0; gap: 3px; }
+@media (min-width: 621px) {
+  .sidebar { height: 100dvh; overflow: hidden; }
+  .sidebar-brand, .sidebar-kicker, .side-profile { flex-shrink: 0; }
+  .side-nav {
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #88a69d transparent;
+    padding-block: 4px;
+  }
+}
 .side-link { min-height: 44px; border-radius: 11px; font-size: 13px; font-weight: 680; }
 .side-link.active { background: rgba(218,246,146,.14); color: #e4faaf; }
 .sign-out { width: 100%; border: 0; background: transparent; cursor: pointer; text-align: left; }
