@@ -175,7 +175,7 @@ export function AuthForm({ initialMode }: { initialMode: "login" | "register" | 
           <h1 id="reset-heading" style={{ margin: 0 }}>Set new password</h1>
         </div>
         <p style={{ marginTop: 10 }}>Choose a new password of at least 10 characters.</p>
-        <form onSubmit={handleUpdatePassword} className="form-grid" noValidate>
+        <form method="post" onSubmit={handleUpdatePassword} className="form-grid" noValidate>
           {newPasswordError && (
             <div className="field-wide form-error" role="alert">
               {newPasswordError}
@@ -276,7 +276,7 @@ export function AuthForm({ initialMode }: { initialMode: "login" | "register" | 
             </div>
           </div>
         ) : (
-          <form onSubmit={handleResetPassword} className="form-grid" noValidate>
+          <form method="post" onSubmit={handleResetPassword} className="form-grid" noValidate>
             {forgotError && (
               <div className="field-wide form-error" role="alert">
                 {forgotError}
@@ -358,7 +358,7 @@ export function AuthForm({ initialMode }: { initialMode: "login" | "register" | 
       )}
       {formError && <div className="form-error" role="alert">{formError}</div>}
       {notice && <div className="form-error" role="status">{notice}</div>}
-      <form className="form-grid" onSubmit={handleSubmit(onSubmit)} noValidate>
+      <form method="post" className="form-grid" onSubmit={handleSubmit(onSubmit)} noValidate>
         {mode === "register" && (
           <>
             <Field label="First name" error={errors.firstName?.message}>
