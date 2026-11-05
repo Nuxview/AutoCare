@@ -19,9 +19,11 @@ export async function POST(request: Request) {
     const { email } = resetSchema.parse(json);
 
     const supabase = await createClient();
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.APP_URL || "http://localhost:3000"}/login?mode=reset`,
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.APP_URL || "http://localhost:3000"}/auth/callback?mode=reset`,
     });
+    // Keep the public response neutral, but make delivery failures diagnosable.
+    if (error) console.error("Password recovery delivery failed", { code: error.code, status: error.status });
 
     return NextResponse.json({
       success: true,

@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/api";
 import { deterministicHash, encryptField, normalizeKenyanPhone } from "@/lib/security";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getServerEnv } from "@/lib/env";
 import type { loginSchema, registerSchema } from "@/lib/validation";
 
 function profile(row: Record<string, unknown>) {
@@ -15,7 +16,7 @@ export async function register(input: z.infer<typeof registerSchema>) {
   catch { throw new ApiError(400, "Enter a valid Kenyan mobile number", "INVALID_PHONE"); }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({ email: input.email, password: input.password, options: { data: { first_name: input.firstName, last_name: input.lastName, account_type: input.accountType } } });
+  const { data, error } = await supabase.auth.signUp({ email: input.email, password: input.password, options: { emailRedirectTo: new URL("/auth/callback", getServerEnv().APP_URL).toString(), data: { first_name: input.firstName, last_name: input.lastName, account_type: input.accountType } } });
   if (error) throw new ApiError(error.status ?? 400, error.message, "AUTH_SIGNUP_FAILED");
   if (!data.user || data.user.identities?.length === 0) throw new ApiError(409, "An account with that email already exists", "CONFLICT");
 

@@ -28,9 +28,9 @@ const formFields = new Set<keyof Form>([
  *
  * @param props.initialMode Initial mode to display ('login' | 'register' | 'reset')
  */
-export function AuthForm({ initialMode }: { initialMode: "login" | "register" | "reset" }) {
+export function AuthForm({ initialMode, invalidLink = false }: { initialMode: "login" | "register" | "reset"; invalidLink?: boolean }) {
   const router = useRouter();
-  const [formError, setFormError] = useState("");
+  const [formError, setFormError] = useState(invalidLink ? "This email link is expired or invalid. Request a new link and open it in the same browser where you started." : "");
   const [notice, setNotice] = useState("");
 
   // Reset password flow states
@@ -112,8 +112,9 @@ export function AuthForm({ initialMode }: { initialMode: "login" | "register" | 
     }
 
     setIsResetPassword(false);
-    setNotice("Password updated successfully. Sign in with your new password.");
     switchMode("login");
+    await supabase.auth.signOut();
+    setNotice("Password updated successfully. Sign in with your new password.");
   }
 
   async function handleResetPassword(e: React.FormEvent) {
