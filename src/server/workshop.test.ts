@@ -59,7 +59,7 @@ describe("workshop database workflows", () => {
   beforeAll(async () => {
     db = new PGlite();
     await db.exec(
-      "create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz); create schema storage; create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);",
+      "create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$; create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz); create schema storage; create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);",
     );
     const dir = path.resolve("supabase/migrations");
     for (const file of (await readdir(dir))
