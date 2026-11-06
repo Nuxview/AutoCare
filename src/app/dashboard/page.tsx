@@ -357,9 +357,11 @@ function GarageHome({ data }: { data: Dashboard }) {
             <Link className="btn btn-lime" href="/dashboard/bookings">
               Review bookings <ArrowRight size={17} />
             </Link>
-            <Link className="hero-link" href="/dashboard/garage-settings">
-              Garage settings
-            </Link>
+            {can(role, "settings") && (
+              <Link className="hero-link" href="/dashboard/garage-settings">
+                Garage settings
+              </Link>
+            )}
           </div>
         </div>
         <div className="garage-hero-mark">
@@ -380,12 +382,14 @@ function GarageHome({ data }: { data: Dashboard }) {
           label="Active repair jobs"
           note="In your workshop"
         />
-        <Stat
-          icon={<PackageSearch />}
-          value={data.metrics.lowStock}
-          label="Low stock items"
-          note="Ready for reorder"
-        />
+        {can(role, "inventory") && (
+          <Stat
+            icon={<PackageSearch />}
+            value={data.metrics.lowStock}
+            label="Low stock items"
+            note="Ready for reorder"
+          />
+        )}
         <Stat
           icon={<ReceiptText />}
           value={`KES ${Number(data.metrics.receivables).toLocaleString()}`}
@@ -474,22 +478,26 @@ function GarageHome({ data }: { data: Dashboard }) {
         </section>
       </div>
       <div className="garage-shortcuts">
-        <Link href="/dashboard/inventory">
-          <PackageSearch size={20} />
-          <span>
-            <strong>Manage stock</strong>
-            <small>Parts, quantities and prices</small>
-          </span>
-          <ArrowRight size={17} />
-        </Link>
-        <Link href="/dashboard/garage-settings">
-          <Clock3 size={20} />
-          <span>
-            <strong>Opening hours</strong>
-            <small>Set your availability</small>
-          </span>
-          <ArrowRight size={17} />
-        </Link>
+        {can(role, "inventory") && (
+          <Link href="/dashboard/inventory">
+            <PackageSearch size={20} />
+            <span>
+              <strong>Manage stock</strong>
+              <small>Parts, quantities and prices</small>
+            </span>
+            <ArrowRight size={17} />
+          </Link>
+        )}
+        {can(role, "settings") && (
+          <Link href="/dashboard/garage-settings">
+            <Clock3 size={20} />
+            <span>
+              <strong>Opening hours</strong>
+              <small>Set your availability</small>
+            </span>
+            <ArrowRight size={17} />
+          </Link>
+        )}
         <Link href="/dashboard/invoices">
           <ReceiptText size={20} />
           <span>

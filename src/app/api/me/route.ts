@@ -15,7 +15,24 @@ export async function GET() {
       .eq("is_active", true)
       .order("created_at");
     if (error) throw error;
-    return Response.json({ user, memberships: camelize(data) });
+    let hasPendingInvitation = false;
+    if (!data?.length) {
+      const pending = await createAdminClient()
+        .from("staff_invitations")
+        .select("id")
+        .eq("email", user.email.toLowerCase())
+        .is("accepted_at", null)
+        .is("revoked_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .limit(1);
+      if (pending.error) throw pending.error;
+      hasPendingInvitation = !!pending.data?.length;
+    }
+    return Response.json({
+      user,
+      memberships: camelize(data),
+      hasPendingInvitation,
+    });
   } catch (error) {
     return jsonError(error);
   }

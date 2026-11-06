@@ -80,4 +80,20 @@ export const pageCapabilities: Record<string, Capability> = {
   staff: "staff",
   "garage-settings": "settings",
   billing: "billing",
+  history: "repairs",
 };
+
+export function canAccessWorkspacePage(
+  garage: boolean,
+  role: string | null,
+  section: string,
+  hasInvitation = false,
+) {
+  if (section === "invitations") return !garage && hasInvitation;
+  if (!section) return true;
+  if (!garage)
+    return ["vehicles", "bookings", "jobs", "history", "invoices"].includes(
+      section,
+    );
+  return !!pageCapabilities[section] && can(role, pageCapabilities[section]);
+}

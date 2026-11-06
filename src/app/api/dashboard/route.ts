@@ -1,4 +1,5 @@
 import { jsonError } from "@/lib/api";
+import { can } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { camelize } from "@/lib/supabase/format";
 import {
@@ -15,6 +16,8 @@ export async function GET() {
       .select("*,franchise:franchises(id,name,status),shop:shops(id,name)")
       .eq("user_id", user.id)
       .eq("is_active", true)
+      .order("created_at")
+      .limit(1)
       .maybeSingle();
     if (membershipResult.error) throw membershipResult.error;
     const membership = membershipResult.data;
@@ -158,7 +161,9 @@ export async function GET() {
     ] = await Promise.all([
       jobsQuery,
       bookingsQuery,
-      stockQuery,
+      can(membership.role, "inventory")
+        ? stockQuery
+        : Promise.resolve({ data: [], error: null }),
       receivablesQuery,
       recentQuery,
       pendingQuery,
@@ -186,7 +191,7 @@ export async function GET() {
       metrics: {
         openJobs: jobsResult.count ?? 0,
         todayBookings: bookingsResult.count ?? 0,
-        lowStock,
+        ...(can(membership.role, "inventory") ? { lowStock } : {}),
         receivables,
         pendingBookings: pendingResult.count ?? 0,
       },

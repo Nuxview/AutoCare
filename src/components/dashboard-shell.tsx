@@ -15,7 +15,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { Brand } from "./brand";
-import { can, pageCapabilities, roleLabel } from "@/lib/permissions";
+import { canAccessWorkspacePage, roleLabel } from "@/lib/permissions";
 import { WorkspaceContext } from "./workspace-context";
 
 const customerLinks = [
@@ -23,11 +23,6 @@ const customerLinks = [
   { href: "/dashboard/bookings", label: "Garage visits", icon: CalendarDays },
   { href: "/dashboard/vehicles", label: "My vehicles", icon: CarFront },
   { href: "/dashboard/history", label: "Service history", icon: CarFront },
-  {
-    href: "/dashboard/invitations",
-    label: "Staff invitations",
-    icon: Settings2,
-  },
   { href: "/dashboard/jobs", label: "Repairs", icon: Wrench },
   { href: "/dashboard/invoices", label: "Invoices", icon: ReceiptText },
 ];
@@ -73,6 +68,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, []);
   const [role, setRole] = useState<string | null>(null);
   const [userId, setUserId] = useState("");
+  const [hasInvitation, setHasInvitation] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
     let active = true;
@@ -88,6 +84,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           setGarage(data.memberships.length > 0);
           setRole(data.memberships[0]?.role ?? null);
           setUserId(data.user.id);
+          setHasInvitation(data.hasPendingInvitation === true);
         }
       })
       .catch((e) => {
@@ -106,27 +103,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     garage === null
       ? []
       : garage
-        ? garageLinks.filter((link) => {
-            const key = link.href.split("/")[2];
-            return key === "history"
-              ? can(role, "repairs")
-              : !pageCapabilities[key] || can(role, pageCapabilities[key]);
-          })
+        ? garageLinks.filter((link) =>
+            canAccessWorkspacePage(true, role, link.href.split("/")[2] ?? ""),
+          )
         : customerLinks;
   const section = path.split("/")[2];
-  const permitted = garage
-    ? section === "vehicles" || section === "invitations"
-      ? false
-      : section === "history"
-        ? can(role, "repairs")
-        : !pageCapabilities[section] || can(role, pageCapabilities[section])
-    : ![
-        "staff",
-        "schedule",
-        "inventory",
-        "billing",
-        "garage-settings",
-      ].includes(section);
+  const permitted = canAccessWorkspacePage(
+    garage === true,
+    role,
+    section ?? "",
+    hasInvitation,
+  );
   return (
     <div
       className={`app-layout ${garage ? "garage-layout" : "customer-layout"}`}
@@ -186,6 +173,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         ) : (
           <WorkspaceContext.Provider value={{ role, userId, garage }}>
+            {!garage && hasInvitation && section !== "invitations" && (
+              <div className="app-content" role="status">
+                You have an invitation to join a garage.{" "}
+                <Link href="/dashboard/invitations">Review invitation</Link>
+              </div>
+            )}
             {children}
           </WorkspaceContext.Provider>
         )}

@@ -50,7 +50,7 @@ export default function InvitationsPage() {
   }
   return (
     <div className="app-content workflow-stack">
-      <h2>Staff invitations</h2>
+      <h2>Join a garage</h2>
       <p>
         Accepting joins the garage workspace with the permissions shown. Your
         email must be verified.
