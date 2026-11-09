@@ -36,54 +36,10 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 import { createJobFromBooking } from "./service";
 import { PATCH as updateJobStatusRoute } from "@/app/api/jobs/status/route";
+import { isValidJobTransition } from "@/server/jobs/transitions";
 
 const VALID_BOOKING_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const VALID_JOB_ID = "77777777-7777-4777-8777-777777777777";
-
-export type JobStatus =
-  | "OPEN"
-  | "DIAGNOSING"
-  | "AWAITING_APPROVAL"
-  | "APPROVED"
-  | "IN_PROGRESS"
-  | "QUALITY_CHECK"
-  | "READY"
-  | "COMPLETED"
-  | "CANCELLED";
-
-/**
- * Expected valid transition mapping for the repair job state machine.
- */
-const ALLOWED_STAGE_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
-  OPEN: ["DIAGNOSING", "IN_PROGRESS", "CANCELLED"],
-  DIAGNOSING: ["AWAITING_APPROVAL", "IN_PROGRESS", "CANCELLED"],
-  AWAITING_APPROVAL: ["APPROVED", "CANCELLED"],
-  APPROVED: ["IN_PROGRESS", "CANCELLED"],
-  IN_PROGRESS: ["QUALITY_CHECK", "READY", "CANCELLED"],
-  QUALITY_CHECK: ["READY", "IN_PROGRESS"],
-  READY: ["COMPLETED"],
-  COMPLETED: [],
-  CANCELLED: [],
-};
-
-/**
- * Evaluates whether a requested job status transition is valid according
- * to the business state machine rules.
- *
- * @param currentStatus - Current state of the repair job.
- * @param targetStatus - Requested destination state.
- * @returns True if the transition is permitted, false otherwise.
- */
-export function isValidJobTransition(
-  currentStatus: JobStatus,
-  targetStatus: JobStatus,
-): boolean {
-  if (currentStatus === targetStatus) {
-    return true;
-  }
-  const permitted = ALLOWED_STAGE_TRANSITIONS[currentStatus] ?? [];
-  return permitted.includes(targetStatus);
-}
 
 describe("AREA 3: Job lifecycle transitions", () => {
   beforeEach(() => {
@@ -366,6 +322,16 @@ describe("AREA 3: Job lifecycle transitions", () => {
       expect(res.status).toBe(409);
       expect(json.error.code).toBe("TASKS_INCOMPLETE");
       expect(json.error.message).toBe("Complete every repair step first");
+    });
+
+    it("rejects illegal stage skip: cannot jump OPEN -> COMPLETED via the status route", async () => {
+      mockJobAccess.mockResolvedValue({
+        job: { id: VALID_JOB_ID, status: "OPEN", booking_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" },
+      });
+      const res = await callStatusPatch(VALID_JOB_ID, "COMPLETED");
+      const json = await res.json();
+      expect(res.status).toBe(409);
+      expect(json.error.code).toBe("INVALID_STAGE_TRANSITION");
     });
 
     it("evaluates pure lifecycle transition matrix to detect illegal intermediate skips", () => {

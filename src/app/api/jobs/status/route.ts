@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ApiError,jsonError } from "@/lib/api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { jobAccess } from "@/server/garage/scope";
+import { isValidJobTransition, type JobStatus } from "@/server/jobs/transitions";
 
 const schema=z.object({jobId:z.uuid(),status:z.enum(["IN_PROGRESS","READY","COMPLETED"])});
 export async function PATCH(request:Request){
@@ -10,6 +11,7 @@ export async function PATCH(request:Request){
     const {job}=await jobAccess(input.jobId,true);
     if(["COMPLETED","CANCELLED"].includes(job.status)) throw new ApiError(409,"This repair is already closed","JOB_CLOSED");
     if(job.status===input.status) return Response.json({ok:true});
+    if(!isValidJobTransition(job.status as JobStatus,input.status)) throw new ApiError(409,`Cannot move a repair from ${job.status} to ${input.status}`,"INVALID_STAGE_TRANSITION");
     const admin=createAdminClient();
     if(input.status==="READY"||input.status==="COMPLETED"){
       const {data:tasks,error:taskError}=await admin.from("repair_tasks").select("status").eq("job_id",input.jobId);
