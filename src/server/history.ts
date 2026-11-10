@@ -52,7 +52,7 @@ export async function vehicleHistory(vehicleId: string) {
       "SHOP_MANAGER",
       "SERVICE_ADVISOR",
       "MECHANIC",
-    ]);
+    ], false, user);
   }
   // Explicit customer-facing fields only: never include another garage's internal notes.
   const jobs = await admin

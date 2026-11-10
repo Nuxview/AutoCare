@@ -20,7 +20,7 @@ export async function GET(request: Request) {
         .eq("paystack_checkout_reference", reference).maybeSingle();
       if (error) throw error;
       if (!data) throw new ApiError(404, "Subscription checkout not found", "PAYMENT_NOT_FOUND");
-      await requireTenantMembership(data.franchise_id, undefined, ["FRANCHISE_OWNER"], true);
+      await requireTenantMembership(data.franchise_id, undefined, ["FRANCHISE_OWNER"], true, user);
     }
     const result = await reconcilePaystackTransaction(reference);
     return Response.json({ paid: result.paid }, { status: result.paid ? 200 : 202 });

@@ -1,5 +1,7 @@
 "use client";
 
+import { request } from "@/lib/client-cache";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Circle, Clock3, Plus, Wrench } from "lucide-react";
@@ -68,7 +70,7 @@ export default function JobsPage() {
   }, []);
   async function addTask(e: React.FormEvent, jobId: string) {
     e.preventDefault();
-    const r = await fetch("/api/jobs/tasks", {
+    const r = await request("/api/jobs/tasks", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jobId, title }),
@@ -80,7 +82,7 @@ export default function JobsPage() {
     load();
   }
   async function setTask(taskId: string, status: Task["status"]) {
-    const r = await fetch("/api/jobs/tasks", {
+    const r = await request("/api/jobs/tasks", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ taskId, status }),
@@ -92,7 +94,7 @@ export default function JobsPage() {
     load();
   }
   async function issueInvoice(jobId: string) {
-    const r = await fetch("/api/jobs/invoice", {
+    const r = await request("/api/jobs/invoice", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jobId }),
@@ -107,7 +109,7 @@ export default function JobsPage() {
     jobId: string,
     status: "IN_PROGRESS" | "READY" | "COMPLETED",
   ) {
-    const r = await fetch("/api/jobs/status", {
+    const r = await request("/api/jobs/status", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jobId, status }),
