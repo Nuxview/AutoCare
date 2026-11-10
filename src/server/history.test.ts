@@ -55,6 +55,8 @@ describe("customer-controlled vehicle history", () => {
       "garage",
       undefined,
       expect.arrayContaining(["MECHANIC"]),
+      false,
+      { id: "viewer", email: "viewer@example.com" },
     );
     const selection = fixtures.calls.find(
       ([table, method]) => table === "jobs" && method === "select",

@@ -1,6 +1,7 @@
 import { ApiError } from "@/lib/api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  assertTenantActive,
   requireAuthenticatedUser,
   requireTenantMembership,
 } from "@/server/auth/context";
@@ -20,7 +21,7 @@ export async function garageScope(
   const user = await requireAuthenticatedUser();
   const { data, error } = await createAdminClient()
     .from("memberships")
-    .select("franchise_id,shop_id,role")
+    .select("franchise_id,shop_id,role,franchise:franchises(status)")
     .eq("user_id", user.id)
     .eq("is_active", true)
     .order("created_at")
@@ -29,11 +30,7 @@ export async function garageScope(
   if (error) throw error;
   if (!data || (roles && !roles.includes(data.role)))
     throw new ApiError(403, "Garage access is required", "FORBIDDEN");
-  await requireTenantMembership(
-    data.franchise_id,
-    data.shop_id ?? undefined,
-    roles,
-  );
+  assertTenantActive(data.franchise);
   return {
     user,
     franchiseId: data.franchise_id as string,
@@ -63,6 +60,8 @@ export async function bookingAccess(bookingId: string) {
         "SERVICE_ADVISOR",
         "MECHANIC",
       ],
+      false,
+      user,
     );
     if (membership.role === "MECHANIC") {
       const assigned = await admin
@@ -108,6 +107,8 @@ export async function jobAccess(jobId: string, management = false) {
             "MECHANIC",
           ]
         : undefined,
+      false,
+      user,
     );
     if (!can(membership.role, "repairs") && !can(membership.role, "invoices"))
       throw new ApiError(403, "Repair access denied", "FORBIDDEN");
