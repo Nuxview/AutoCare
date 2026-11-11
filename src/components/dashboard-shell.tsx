@@ -1,12 +1,5 @@
 "use client";
 
-import {
-  clearApiCache,
-  primeApiCache,
-  request,
-  setApiCacheScope,
-} from "@/lib/client-cache";
-
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -73,48 +66,24 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return () =>
       window.removeEventListener("autocare-workspace-changed", changed);
   }, []);
-  useEffect(() => {
-    const changed = (event: StorageEvent) => {
-      if (event.key === "autocare-session-changed") {
-        clearApiCache();
-        window.location.reload();
-      }
-    };
-    window.addEventListener("storage", changed);
-    return () => window.removeEventListener("storage", changed);
-  }, []);
   const [role, setRole] = useState<string | null>(null);
   const [userId, setUserId] = useState("");
-  const [franchiseId, setFranchiseId] = useState<string | null>(null);
   const [hasInvitation, setHasInvitation] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
     let active = true;
-    const dashboard = window.location.pathname === "/dashboard";
-    // Workspace changes must never reuse data from before an invitation was accepted.
-    clearApiCache();
-    request(dashboard ? "/api/dashboard" : "/api/me")
+    fetch("/api/me")
       .then(async (r) => {
         if (r.status === 401) {
           router.replace("/login");
           return;
         }
-        const payload = await r.json();
-        // Keep navigation (including billing) available when only the dashboard is denied.
-        if (!r.ok && !payload.workspace)
-          throw new Error("Could not load workspace");
-        const data = dashboard ? payload.workspace : payload;
+        if (!r.ok) throw new Error("Could not load workspace");
+        const data = await r.json();
         if (active) {
-          setApiCacheScope(
-            data.user.id,
-            data.memberships[0]?.franchise?.id ?? null,
-            data.memberships[0]?.role ?? null,
-          );
-          if (dashboard && r.ok) primeApiCache("/api/dashboard", payload);
           setGarage(data.memberships.length > 0);
           setRole(data.memberships[0]?.role ?? null);
           setUserId(data.user.id);
-          setFranchiseId(data.memberships[0]?.franchise?.id ?? null);
           setHasInvitation(data.hasPendingInvitation === true);
         }
       })
@@ -126,7 +95,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     };
   }, [router, revision]);
   async function logout() {
-    await request("/api/auth/logout", { method: "POST" });
+    await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
   }
@@ -203,9 +172,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             This page is not available for your role.
           </div>
         ) : (
-          <WorkspaceContext.Provider
-            value={{ role, userId, garage, franchiseId }}
-          >
+          <WorkspaceContext.Provider value={{ role, userId, garage }}>
             {!garage && hasInvitation && section !== "invitations" && (
               <div className="app-content" role="status">
                 You have an invitation to join a garage.{" "}

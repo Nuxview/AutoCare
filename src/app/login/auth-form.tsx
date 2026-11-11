@@ -1,7 +1,5 @@
 "use client";
 
-import { request, resetApiSession } from "@/lib/client-cache";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
@@ -116,7 +114,6 @@ export function AuthForm({ initialMode, invalidLink = false }: { initialMode: "l
     setIsResetPassword(false);
     switchMode("login");
     await supabase.auth.signOut();
-    resetApiSession();
     setNotice("Password updated successfully. Sign in with your new password.");
   }
 
@@ -132,7 +129,7 @@ export function AuthForm({ initialMode, invalidLink = false }: { initialMode: "l
 
     setIsSendingReset(true);
     try {
-      await request("/api/auth/reset-password", {
+      await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: forgotEmail.trim().toLowerCase() }),
@@ -150,7 +147,7 @@ export function AuthForm({ initialMode, invalidLink = false }: { initialMode: "l
     setNotice("");
     const { mode: submittedMode, ...registration } = data;
     const payload = submittedMode === "login" ? { email: data.email, password: data.password } : registration;
-    const response = await request(`/api/auth/${submittedMode}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+    const response = await fetch(`/api/auth/${submittedMode}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
     const result = await response.json() as ErrorResponse & { requiresEmailConfirmation?: boolean };
     if (!response.ok) {
       for (const [field, messages] of Object.entries(result.error?.details?.fieldErrors ?? {})) {

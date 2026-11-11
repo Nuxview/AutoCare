@@ -1,6 +1,4 @@
 "use client";
-
-import { request } from "@/lib/client-cache";
 import { useEffect, useState } from "react";
 
 type Options = {
@@ -27,7 +25,7 @@ export function InvoicePayment({
   const [message, setMessage] = useState("");
   useEffect(() => {
     let active = true;
-    void request(`/api/payments/options?invoiceId=${invoiceId}`)
+    void fetch(`/api/payments/options?invoiceId=${invoiceId}`)
       .then(async (r) => {
         if (!r.ok) throw new Error("Payment options could not be loaded.");
         const data = await r.json();
@@ -45,7 +43,7 @@ export function InvoicePayment({
     setBusy(true);
     setMessage("");
     try {
-      const r = await request(`/api/payments/${provider}`, {
+      const r = await fetch(`/api/payments/${provider}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ invoiceId, phone }),
@@ -81,7 +79,7 @@ export function InvoicePayment({
     try {
       const endpoint =
         options.pending.provider === "PAYSTACK" ? "paystack/verify" : "status";
-      const r = await request(
+      const r = await fetch(
         `/api/payments/${endpoint}?reference=${encodeURIComponent(options.pending.reference)}`,
       );
       const data = await r.json();

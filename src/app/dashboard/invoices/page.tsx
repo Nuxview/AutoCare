@@ -1,11 +1,8 @@
 "use client";
 
-import { request } from "@/lib/client-cache";
-
 import { useEffect, useState } from "react";
 import { InvoicePayment } from "@/components/invoice-payment";
 import { ApprovedInvoices } from "@/components/approved-invoices";
-import { useWorkspace } from "@/components/workspace-context";
 
 type Invoice = {
   id: string;
@@ -20,26 +17,41 @@ type Invoice = {
 };
 
 async function fetchInvoiceData() {
-  const response = await request("/api/invoices");
-  return response.ok ? ((await response.json()).invoices as Invoice[]) : [];
+  const [invoicesResponse, meResponse] = await Promise.all([
+    fetch("/api/invoices"),
+    fetch("/api/me"),
+  ]);
+  return {
+    invoices: invoicesResponse.ok
+      ? ((await invoicesResponse.json()).invoices as Invoice[])
+      : [],
+    userId: meResponse.ok
+      ? ((await meResponse.json()).user.id as string)
+      : null,
+  };
 }
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
-  const { userId } = useWorkspace();
+  const [userId, setUserId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
   async function load() {
-    setInvoices(await fetchInvoiceData());
+    const data = await fetchInvoiceData();
+    setInvoices(data.invoices);
+    setUserId(data.userId);
   }
 
   useEffect(() => {
-    void fetchInvoiceData().then(setInvoices);
+    void fetchInvoiceData().then((data) => {
+      setInvoices(data.invoices);
+      setUserId(data.userId);
+    });
     const reference = new URLSearchParams(window.location.search).get(
       "paystack_reference",
     );
     if (reference?.startsWith("PAY-")) {
-      void request(
+      void fetch(
         `/api/payments/paystack/verify?reference=${encodeURIComponent(reference)}`,
       ).then(async (response) => {
         setMessage(
@@ -56,7 +68,7 @@ export default function InvoicesPage() {
       "stripe_reference",
     );
     if (stripeReference?.startsWith("PAY-")) {
-      void request(
+      void fetch(
         `/api/payments/status?reference=${encodeURIComponent(stripeReference)}`,
       )
         .then(async (response) => {

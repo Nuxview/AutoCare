@@ -1,9 +1,6 @@
 "use client";
 
-import { request } from "@/lib/client-cache";
-
 import { useEffect, useState, type FormEvent } from "react";
-import { useWorkspace } from "@/components/workspace-context";
 
 type Bank = { name: string; code: string };
 type BillingSummary = {
@@ -14,7 +11,7 @@ type BillingSummary = {
 };
 
 export default function BillingPage() {
-  const { franchiseId, role } = useWorkspace();
+  const [franchiseId, setFranchiseId] = useState<string | null>(null);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bankCode, setBankCode] = useState("");
@@ -23,7 +20,7 @@ export default function BillingPage() {
   const [message, setMessage] = useState("");
 
   async function load(id: string) {
-    const response = await request(`/api/billing/summary?franchiseId=${encodeURIComponent(id)}`);
+    const response = await fetch(`/api/billing/summary?franchiseId=${encodeURIComponent(id)}`);
     if (!response.ok) throw new Error("Billing details could not be loaded");
     setSummary(await response.json());
   }
@@ -31,28 +28,30 @@ export default function BillingPage() {
   useEffect(() => {
     void (async () => {
       try {
-        if (role !== "FRANCHISE_OWNER" || !franchiseId) throw new Error("Only a garage owner can manage billing");
-        await Promise.all([
-          load(franchiseId),
-          request("/api/billing/banks").then(async response => {
-            if (response.ok) setBanks((await response.json()).banks);
-          }),
-        ]);
+        const meResponse = await fetch("/api/me");
+        if (!meResponse.ok) throw new Error("Sign in to manage billing");
+        const me = await meResponse.json();
+        const owner = me.memberships?.find((membership: { role: string }) => membership.role === "FRANCHISE_OWNER");
+        if (!owner?.franchise?.id) throw new Error("Only a garage owner can manage billing");
+        setFranchiseId(owner.franchise.id);
+        await load(owner.franchise.id);
+        const banksResponse = await fetch("/api/billing/banks");
+        if (banksResponse.ok) setBanks((await banksResponse.json()).banks);
         const reference = new URLSearchParams(window.location.search).get("paystack_reference");
         if (reference?.startsWith("SUB-")) {
-          const verify = await request(`/api/payments/paystack/verify?reference=${encodeURIComponent(reference)}`);
+          const verify = await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(reference)}`);
           setMessage(verify.ok ? "Subscription payment confirmed." : verify.status === 202 ? "Subscription payment is still processing." : "Subscription payment could not be confirmed yet.");
-          if (verify.ok) await load(franchiseId);
+          if (verify.ok) await load(owner.franchise.id);
         }
       } catch (error) { setMessage(error instanceof Error ? error.message : "Billing could not be loaded"); }
     })();
-  }, [franchiseId, role]);
+  }, []);
 
   async function connectPayouts(event: FormEvent) {
     event.preventDefault(); if (!franchiseId) return;
     setBusy(true); setMessage("");
     try {
-      const response = await request("/api/billing/subaccount", {
+      const response = await fetch("/api/billing/subaccount", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ franchiseId, bankCode, accountNumber }),
       });
@@ -67,7 +66,7 @@ export default function BillingPage() {
     if (!franchiseId) return;
     setBusy(true); setMessage("");
     try {
-      const response = await request("/api/billing/subscribe", {
+      const response = await fetch("/api/billing/subscribe", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ franchiseId }),
       });
       const result = await response.json();

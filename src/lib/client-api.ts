@@ -1,11 +1,9 @@
-import { request } from "./client-cache";
-
 export async function api<T>(
   url: string,
   body?: unknown,
   method = "POST",
 ): Promise<T> {
-  const response = await request(
+  const response = await fetch(
     url,
     body === undefined
       ? { cache: "no-store" }

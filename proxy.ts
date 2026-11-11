@@ -6,6 +6,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // API handlers validate sessions and can write refreshed cookies themselves.
-  matcher: ["/((?!api(?:/|$)|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };
