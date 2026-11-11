@@ -9,5 +9,3 @@ dist
 generated
 *.tsbuildinfo
 supabase/.temp/
-.vercel
-.env*

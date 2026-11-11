@@ -2,36 +2,30 @@ import { jsonError } from "@/lib/api";
 import { can } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { camelize } from "@/lib/supabase/format";
-import { assertTenantActive } from "@/server/auth/context";
-import { loadWorkspace } from "@/server/auth/workspace";
-import { RequestTiming } from "@/server/timing";
+import {
+  requireAuthenticatedUser,
+  requireTenantMembership,
+} from "@/server/auth/context";
 
 export async function GET() {
-  const timing = new RequestTiming();
-  let workspace: Awaited<ReturnType<typeof loadWorkspace>> | undefined;
-  const respond = (body: Record<string, unknown>, status = 200) =>
-    timing.response(
-      Response.json(
-        {
-          ...body,
-          ...(workspace
-            ? {
-                workspace: {
-                  ...workspace,
-                  memberships: camelize(workspace.memberships),
-                },
-              }
-            : {}),
-        },
-        { status },
-      ),
-    );
   try {
-    workspace = await loadWorkspace(timing);
-    const { user } = workspace;
+    const user = await requireAuthenticatedUser();
     const admin = createAdminClient();
-    const membership = workspace.memberships[0];
-    if (membership) assertTenantActive(membership.franchise);
+    const membershipResult = await admin
+      .from("memberships")
+      .select("*,franchise:franchises(id,name,status),shop:shops(id,name)")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .order("created_at")
+      .limit(1)
+      .maybeSingle();
+    if (membershipResult.error) throw membershipResult.error;
+    const membership = membershipResult.data;
+    if (membership)
+      await requireTenantMembership(
+        membership.franchise_id,
+        membership.shop_id ?? undefined,
+      );
     if (
       membership &&
       ![
@@ -41,7 +35,7 @@ export async function GET() {
         "SERVICE_ADVISOR",
       ].includes(membership.role)
     )
-      return respond({
+      return Response.json({
         kind: "garage",
         user,
         membership: camelize(membership),
@@ -55,46 +49,36 @@ export async function GET() {
         recentResult,
         jobsResult,
       ] = await Promise.all([
-        timing.measure("vehicles", () =>
-          admin
-            .from("vehicles")
-            .select("id", { count: "exact", head: true })
-            .eq("owner_id", user.id),
-        ),
-        timing.measure("active_bookings", () =>
-          admin
-            .from("bookings")
-            .select("id", { count: "exact", head: true })
-            .eq("customer_id", user.id)
-            .not("status", "in", '("COMPLETED","CANCELLED","DECLINED")'),
-        ),
-        timing.measure("unpaid_invoices", () =>
-          admin
-            .from("invoices")
-            .select("id", { count: "exact", head: true })
-            .eq("customer_id", user.id)
-            .in("status", ["ISSUED", "PARTIALLY_PAID", "OVERDUE"]),
-        ),
-        timing.measure("recent_bookings", () =>
-          admin
-            .from("bookings")
-            .select(
-              "id,reference,status,scheduled_at,shop:shops(name),vehicle:vehicles(registration),service:service_catalog(name)",
-            )
-            .eq("customer_id", user.id)
-            .order("scheduled_at", { ascending: false })
-            .limit(5),
-        ),
-        timing.measure("recent_jobs", () =>
-          admin
-            .from("jobs")
-            .select(
-              "id,reference,status,estimate_amount,updated_at,shop:shops(name),vehicle:vehicles(registration,make,model),tasks:repair_tasks(id,title,status,position)",
-            )
-            .eq("customer_id", user.id)
-            .order("updated_at", { ascending: false })
-            .limit(4),
-        ),
+        admin
+          .from("vehicles")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_id", user.id),
+        admin
+          .from("bookings")
+          .select("id", { count: "exact", head: true })
+          .eq("customer_id", user.id)
+          .not("status", "in", '("COMPLETED","CANCELLED","DECLINED")'),
+        admin
+          .from("invoices")
+          .select("id", { count: "exact", head: true })
+          .eq("customer_id", user.id)
+          .in("status", ["ISSUED", "PARTIALLY_PAID", "OVERDUE"]),
+        admin
+          .from("bookings")
+          .select(
+            "id,reference,status,scheduled_at,shop:shops(name),vehicle:vehicles(registration),service:service_catalog(name)",
+          )
+          .eq("customer_id", user.id)
+          .order("scheduled_at", { ascending: false })
+          .limit(5),
+        admin
+          .from("jobs")
+          .select(
+            "id,reference,status,estimate_amount,updated_at,shop:shops(name),vehicle:vehicles(registration,make,model),tasks:repair_tasks(id,title,status,position)",
+          )
+          .eq("customer_id", user.id)
+          .order("updated_at", { ascending: false })
+          .limit(4),
       ]);
       const firstError =
         vehiclesResult.error ??
@@ -103,7 +87,7 @@ export async function GET() {
         recentResult.error ??
         jobsResult.error;
       if (firstError) throw firstError;
-      return respond({
+      return Response.json({
         kind: "customer",
         user,
         metrics: {
@@ -175,14 +159,14 @@ export async function GET() {
       recentResult,
       pendingResult,
     ] = await Promise.all([
-      timing.measure("open_jobs", () => jobsQuery),
-      timing.measure("today_bookings", () => bookingsQuery),
+      jobsQuery,
+      bookingsQuery,
       can(membership.role, "inventory")
-        ? timing.measure("stock", () => stockQuery)
+        ? stockQuery
         : Promise.resolve({ data: [], error: null }),
-      timing.measure("receivables", () => receivablesQuery),
-      timing.measure("recent_jobs", () => recentQuery),
-      timing.measure("pending_bookings", () => pendingQuery),
+      receivablesQuery,
+      recentQuery,
+      pendingQuery,
     ]);
     const firstError =
       jobsResult.error ??
@@ -200,7 +184,7 @@ export async function GET() {
         sum + Number(invoice.total_amount) - Number(invoice.amount_paid),
       0,
     );
-    return respond({
+    return Response.json({
       kind: "garage",
       user,
       membership: camelize(membership),
@@ -215,7 +199,6 @@ export async function GET() {
       pendingBookings: camelize(pendingResult.data),
     });
   } catch (error) {
-    const response = jsonError(error);
-    return respond(await response.json(), response.status);
+    return jsonError(error);
   }
 }

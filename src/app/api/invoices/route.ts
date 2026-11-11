@@ -3,8 +3,8 @@ import { can } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { camelize } from "@/lib/supabase/format";
 import {
-  assertTenantActive,
   requireAuthenticatedUser,
+  requireTenantMembership,
 } from "@/server/auth/context";
 
 export async function GET() {
@@ -13,7 +13,7 @@ export async function GET() {
     const admin = createAdminClient();
     const { data: membership, error: membershipError } = await admin
       .from("memberships")
-      .select("role,franchise_id,shop_id,franchise:franchises(status)")
+      .select("role,franchise_id,shop_id")
       .eq("user_id", user.id)
       .eq("is_active", true)
       .order("created_at")
@@ -22,7 +22,11 @@ export async function GET() {
     if (membershipError) throw membershipError;
     if (membership && !can(membership.role, "invoices"))
       throw new ApiError(403, "Invoice access denied", "FORBIDDEN");
-    if (membership) assertTenantActive(membership.franchise);
+    if (membership)
+      await requireTenantMembership(
+        membership.franchise_id,
+        membership.shop_id ?? undefined,
+      );
     let query = admin
       .from("invoices")
       .select(

@@ -1,7 +1,5 @@
 "use client";
 
-import { request } from "@/lib/client-cache";
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -63,7 +61,7 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   useEffect(() => {
     let active = true;
-    request("/api/dashboard")
+    fetch("/api/dashboard")
       .then(async (r) => {
         if (r.status === 401) {
           router.replace("/login");
