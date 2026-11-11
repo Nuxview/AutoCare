@@ -27,7 +27,19 @@ Multi-tenant automotive service management for Kenyan drivers and garages, built
 
 ## Verification
 
-Run `npm run typecheck`, `npm test`, `npm run build`, and `docker compose config`.
+Run `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`.
+`npm test` runs unit tests and embedded PostgreSQL tests without Supabase credentials
+or a network connection. GitHub Actions runs this same command on every pull request.
+
+Network-backed tests use `npm run test:integration`. Start a disposable local
+Supabase instance with the migrations applied, then explicitly set
+`TEST_SUPABASE_URL`, `TEST_SUPABASE_PUBLISHABLE_KEY`, and
+`TEST_SUPABASE_SECRET_KEY` from that local instance. The integration runner fails
+before connecting when these values are missing, empty, or point to a nonlocal
+host. It never loads `.env.local` or uses application credentials. The RLS suite
+creates and deletes fixture users and records; run it against a local test database
+only. Real authenticated tenant isolation is checked by that seeded suite; an
+invalid JWT test checks authentication failure rather than tenant permissions.
 
 ## Workshop workflows and staff access
 

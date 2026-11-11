@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -26,14 +25,6 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 import { requireTenantMembership } from "./context";
-
-// Supabase anon key ONLY. Never use service role key in tests or committed files.
-const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-  "sb_publishable_ZOtVpXODMzYWnH5YUx7FFA_sLVfTl_0";
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ??
-  "https://pgwgnygetqevatqahniu.supabase.co";
 
 const GARAGE_A_ID = "11111111-1111-4111-8111-111111111111";
 const GARAGE_B_ID = "22222222-2222-4222-8222-222222222222";
@@ -121,48 +112,6 @@ describe("AREA 1: Tenant isolation and permissions", () => {
       };
     });
   }
-
-  it("asserts unauthenticated anon request receives zero rows across protected tables", async () => {
-    // Tests that anonymous access via anon key is strictly denied or returns 0 rows
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const tables = ["jobs", "invoices", "bookings", "profiles"] as const;
-
-    await Promise.all(
-      tables.map(async (table) => {
-        const { data } = await client.from(table).select("*");
-        expect(data ?? []).toHaveLength(0);
-      }),
-    );
-  });
-
-  it("asserts unauthenticated anon request cannot write to Garage B records", async () => {
-    // Verifies write attempts with anon key fail at the database boundary
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { error } = await client.from("jobs").insert({
-      id: "99999999-9999-4999-8999-999999999999",
-      franchise_id: GARAGE_B_ID,
-      shop_id: "88888888-8888-4888-8888-888888888888",
-      reference: "JOB-EXPLOIT",
-      customer_id: USER_A_ID,
-      vehicle_id: "77777777-7777-4777-8777-777777777777",
-    });
-
-    expect(error).not.toBeNull();
-  });
-
-  it("asserts a user authenticated in Garage A receives zero rows when querying Garage B data", async () => {
-    // Simulates an authenticated user client with scoped token attempting to fetch Garage B records directly
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.user_a_garage_a`,
-        },
-      },
-    });
-
-    const { data } = await client.from("jobs").select("*").eq("franchise_id", GARAGE_B_ID);
-    expect(data ?? []).toHaveLength(0);
-  });
 
   it("rejects a user of Garage A calling requireTenantMembership for Garage B", async () => {
     // Configure user A as FRANCHISE_OWNER of Garage A only
