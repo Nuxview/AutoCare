@@ -1,37 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { supabaseTestConfig } from "@/test/supabase-config";
 
-// Populate process.env from .env.local if running in a runner that does not pre-load env files.
-const envLocalPath = path.resolve(process.cwd(), ".env.local");
-if (!process.env.SUPABASE_SECRET_KEY && fs.existsSync(envLocalPath)) {
-  const lines = fs.readFileSync(envLocalPath, "utf8").split(/\r?\n/);
-  lines.forEach((line) => {
-    const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (match) {
-      const key = match[1].trim();
-      const rawVal = match[2].trim();
-      const val = rawVal.replace(/^["']|["']$/g, "");
-      if (!process.env[key]) {
-        process.env[key] = val;
-      }
-    }
-  });
-}
-
-/**
- * Supabase project credentials.
- * Service role key is strictly loaded from an environment variable for setup seeding only.
- * Tests use the anon/publishable key exclusively.
- */
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://pgwgnygetqevatqahniu.supabase.co";
-const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-  "sb_publishable_ZOtVpXODMzYWnH5YUx7FFA_sLVfTl_0";
-const SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+const { url: SUPABASE_URL, publishableKey: SUPABASE_ANON_KEY, secretKey: SERVICE_ROLE_KEY } = supabaseTestConfig();
 
 describe("PART A: Real Row-Level Security (RLS) enforcement", () => {
   const timestamp = Date.now();
@@ -62,11 +33,6 @@ describe("PART A: Real Row-Level Security (RLS) enforcement", () => {
    * @returns Promise resolving when setup completes.
    */
   beforeAll(async () => {
-    expect(
-      SERVICE_ROLE_KEY,
-      "SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY env var must be set for setup seeding",
-    ).toBeDefined();
-
     adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY!, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
