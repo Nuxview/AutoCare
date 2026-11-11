@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api";
 import {
+  assertTenantActive,
   requireAuthenticatedUser,
   requireTenantMembership,
 } from "@/server/auth/context";
@@ -22,7 +23,7 @@ export async function listVisibleJobs() {
   const admin = createAdminClient();
   const { data: membership, error: membershipError } = await admin
     .from("memberships")
-    .select("id,role,franchise_id,shop_id")
+    .select("id,role,franchise_id,shop_id,franchise:franchises(status)")
     .eq("user_id", user.id)
     .eq("is_active", true)
     .order("created_at")
@@ -30,10 +31,7 @@ export async function listVisibleJobs() {
     .maybeSingle();
   if (membershipError) throw membershipError;
   if (membership) {
-    await requireTenantMembership(
-      membership.franchise_id,
-      membership.shop_id ?? undefined,
-    );
+    assertTenantActive(membership.franchise);
     if (!can(membership.role, "repairs"))
       throw new ApiError(403, "Repair access denied", "FORBIDDEN");
   }
